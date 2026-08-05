@@ -1,3 +1,9 @@
 module.exports = {
-  preset: '@react-native/jest-preset',
+  preset: 'react-native',
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1',
+  },
+  transformIgnorePatterns: [
+    'node_modules/(?!(react-native|@react-native|@react-navigation|react-native-.*|@react-native-community)/)',
+  ],
 };
