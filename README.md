@@ -1,97 +1,233 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Track — Expense Tracker
 
-# Getting Started
+Production-ready **React Native (TypeScript)** expense tracker backed exclusively by **Firebase** (Auth, Firestore, Storage, FCM-ready notifications).
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Features
 
-## Step 1: Start Metro
+- Splash + email/password auth (register, login, forgot password, remember me, logout)
+- Dashboard with balance, income/expense, savings, budget progress, charts, quick actions
+- Transactions with search, filters, sort, pagination, pull-to-refresh, edit/delete
+- Categories (defaults + CRUD with icon/color)
+- Monthly / category budgets with overrun warnings
+- Reports (daily / weekly / monthly / yearly) + shareable export summary
+- Profile + settings (dark/light/system theme, currency, language, notification toggles)
+- Receipt & profile image upload via Firebase Storage
+- Redux Toolkit state, React Navigation v7, React Native Paper (Material 3)
+- Offline-friendly Firestore sync + MMKV preferences
+- Firestore & Storage security rules included
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Tech stack
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+| Layer | Choice |
+| --- | --- |
+| App | React Native 0.86 + TypeScript |
+| UI | React Native Paper, Vector Icons, Linear Gradient, Chart Kit |
+| State | Redux Toolkit |
+| Forms | React Hook Form |
+| Backend | Firebase Auth, Firestore, Storage |
+| Push | FCM interface (`@react-native-firebase/messaging` optional) |
+| Prefs | react-native-mmkv |
 
-```sh
-# Using npm
+## Project structure
+
+```text
+src/
+├── components/       # Reusable UI (cards, charts, forms, transactions)
+├── constants/        # App + Firebase env constants
+├── firebase/         # auth, firestore, storage, notifications
+├── hooks/            # bootstrap, theme, analytics, image picker
+├── navigation/       # Auth + Main tabs + nested stacks
+├── redux/            # slices: auth, transactions, categories, budgets, settings, profile, notifications
+├── screens/          # Splash, Auth, Dashboard, Transactions, Categories, Budget, Reports, Profile, Settings
+├── services/         # toast, export
+├── theme/            # light/dark Material 3 palette
+├── types/            # shared TypeScript models
+└── utils/            # formatters, validation, MMKV storage
+
+firebase/
+├── firestore.rules
+├── storage.rules
+└── firestore.indexes.json
+```
+
+## Prerequisites
+
+- Node.js **≥ 22.13** (project engines; 22.11 may warn)
+- Xcode (iOS) / Android Studio (Android)
+- CocoaPods (iOS)
+- A Firebase project
+
+## 1. Install dependencies
+
+```bash
+cd Track
+npm install
+# iOS
+cd ios && bundle install && bundle exec pod install && cd ..
+```
+
+Icon fonts live in `src/assets/fonts/`. Link them after clone or when fonts change:
+
+```bash
+npm run link:fonts
+```
+
+This copies fonts into Android/iOS native projects. Do **not** also use `react-native-vector-icons/fonts.gradle` — that causes duplicate resource errors on Android.
+
+## 2. Configure Firebase
+
+1. Create a project in [Firebase Console](https://console.firebase.google.com/).
+2. Enable **Authentication → Email/Password**.
+3. Create a **Cloud Firestore** database.
+4. Enable **Storage**.
+5. (Optional) Enable **Cloud Messaging** for push.
+
+### Web app config (required for the JS SDK)
+
+Register a Web app in Firebase and copy the config into `src/constants/env.ts`:
+
+```ts
+export const ENV = {
+  FIREBASE_API_KEY: '...',
+  FIREBASE_AUTH_DOMAIN: '...',
+  FIREBASE_PROJECT_ID: '...',
+  FIREBASE_STORAGE_BUCKET: '...',
+  FIREBASE_MESSAGING_SENDER_ID: '...',
+  FIREBASE_APP_ID: '...',
+  FIREBASE_MEASUREMENT_ID: '...',
+};
+```
+
+A template also lives in `.env.example`.
+
+### Deploy security rules
+
+```bash
+# Install Firebase CLI if needed: npm i -g firebase-tools
+firebase login
+firebase init firestore storage   # point to firebase/*.rules
+firebase deploy --only firestore:rules,firestore:indexes,storage
+```
+
+Or paste `firebase/firestore.rules` and `firebase/storage.rules` into the console manually.
+
+### Composite indexes
+
+Deploy `firebase/firestore.indexes.json`, or create indexes when the app logs a Firestore index URL for:
+
+- `transactions`: `uid` ASC + `date` DESC  
+- `categories`: `uid` ASC + `name` ASC  
+
+## 3. Run the app
+
+```bash
 npm start
-
-# OR using Yarn
-yarn start
-```
-
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
 npm run android
-
-# OR using Yarn
-yarn android
-```
-
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
+# or
 npm run ios
-
-# OR using Yarn
-yarn ios
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+## Firestore collections
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+### `users/{uid}`
 
-## Step 3: Modify your app
+| Field | Type |
+| --- | --- |
+| uid | string |
+| name | string |
+| email | string |
+| currency | string |
+| photo | string \| null |
+| createdAt | string (ISO) |
+| fcmToken | string \| null |
 
-Now that you have successfully run the app, let's make changes!
+### `transactions/{id}`
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+| Field | Type |
+| --- | --- |
+| id, uid | string |
+| amount | number |
+| type | `income` \| `expense` |
+| categoryId | string |
+| paymentMethod | string |
+| description | string |
+| receiptImage | string \| null |
+| date, createdAt | string (ISO) |
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+### `categories/{id}`
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+| Field | Type |
+| --- | --- |
+| id, uid, name, icon, color | string |
+| type | `income` \| `expense` |
+| isDefault | boolean |
 
-## Congratulations! :tada:
+Defaults seeded on register: Food, Shopping, Travel, Bills, Medical, Salary, Investment, Gift.
 
-You've successfully run and modified your React Native App. :partying_face:
+### `budgets/{id}`
 
-### Now what?
+| Field | Type |
+| --- | --- |
+| id, uid | string |
+| categoryId | string \| null (null = overall) |
+| amount | number |
+| month, year | number |
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+## Storage paths
 
-# Troubleshooting
+- `receipts/{uid}/{filename}.jpg`
+- `profiles/{uid}/avatar.jpg`
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+## FCM (optional native push)
 
-# Learn More
+The app ships a notification service that **gracefully no-ops** until native messaging is installed.
 
-To learn more about React Native, take a look at the following resources:
+```bash
+npm install @react-native-firebase/app @react-native-firebase/messaging
+```
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+Then:
+
+1. Add `google-services.json` (Android) and `GoogleService-Info.plist` (iOS).
+2. Apply the Google Services Gradle / Xcode setup from the React Native Firebase docs.
+3. Background handling is already wired in `index.js` via `setBackgroundMessageHandler`.
+
+Settings toggles cover daily reminder, budget alerts, and monthly reminder; schedule delivery with Cloud Functions or your FCM campaign tooling.
+
+## Offline support
+
+- Firestore listeners keep a local cache and sync when connectivity returns.
+- Auth persistence uses AsyncStorage (`createAsyncStorage`).
+- Theme / remember-me / settings use **MMKV**.
+
+## Scripts
+
+| Command | Description |
+| --- | --- |
+| `npm start` | Metro bundler |
+| `npm run android` | Run on Android |
+| `npm run ios` | Run on iOS |
+| `npm test` | Jest |
+| `npm run lint` | ESLint |
+
+## Architecture notes
+
+- **Protected routes**: `RootNavigator` switches Auth ↔ Main from Redux auth state.
+- **Realtime sync**: `useAppBootstrap` subscribes to transactions, categories, budgets, and profile after login.
+- **Analytics**: `useAnalytics` powers reports/charts (income vs expense, category pie, savings trend).
+- **Validation**: React Hook Form + shared validators for email/password/amount.
+- **Theming**: Paper MD3 + custom teal/sky finance palette; system / light / dark.
+
+## Production checklist
+
+- [ ] Replace `YOUR_*` values in `src/constants/env.ts`
+- [ ] Deploy Firestore + Storage rules
+- [ ] Create Firestore composite indexes
+- [ ] Configure release signing (Android) / certificates (iOS)
+- [ ] Install `@react-native-firebase/messaging` if you need true push
+- [ ] Move secrets to CI-injected config (e.g. `react-native-config`) for release builds
+
+## License
+
+Private demo project — customize as needed.
+# Track
